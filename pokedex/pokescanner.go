@@ -1,7 +1,13 @@
-package pokemon_go
+// this package is forked from go source code, the only modification is to import my
+// bastardized tokenizer, otherwise:
+// Copyright 2009 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+package pokedex
 
 import (
-	"./poketoken"
+	"../poketoken"
 	"bytes"
 	"fmt"
 	"go/token"

@@ -1,9 +1,9 @@
-// This file is unmodified from go source
-package poketoken
-
+// This file is unmodified from go source and is therefore
 // Copyright 2011 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+
+package poketoken
 
 type serializedFile struct {
 	// fields correspond 1:1 to fields with same (lower-case) name in File
