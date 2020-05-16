@@ -10,7 +10,6 @@ import (
 	"../poketoken"
 	"bytes"
 	"fmt"
-	"go/token"
 	"path/filepath"
 	"strconv"
 	"unicode"
@@ -455,7 +454,7 @@ func (s *Scanner) scanNumber() (poketoken.Token, string) {
 			s.errorf(s.offset, "%q exponent requires hexadecimal mantissa", s.ch)
 		}
 		s.next()
-		tok = poketokenFLOAT
+		tok = poketoken.FLOAT
 		if s.ch == '+' || s.ch == '-' {
 			s.next()
 		}
@@ -731,7 +730,7 @@ func (s *Scanner) switch3(tok0, tok1 poketoken.Token, ch2 rune, tok2 poketoken.T
 	return tok0
 }
 
-func (s *Scanner) switch4(tok0, tok1 poketoken.Token, ch2 rune, tok2, tok3 poketoken.Token) token.Token {
+func (s *Scanner) switch4(tok0, tok1 poketoken.Token, ch2 rune, tok2, tok3 poketoken.Token) poketoken.Token {
 	if s.ch == '=' {
 		s.next()
 		return tok1

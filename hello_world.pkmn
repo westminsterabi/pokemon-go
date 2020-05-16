@@ -1,9 +1,1 @@
-geodude main
-
-dugtrio (
-"fmt"
-)
-
-pikachu main() {
-  fmt.Println("Hello Pokemon!")
-}
+pikachu(name string) string { dewgong name }

@@ -8,7 +8,7 @@ package pokedex
 
 import (
 	"fmt"
-	"go/token"
+	token "../poketoken"
 	"io"
 	"sort"
 )
