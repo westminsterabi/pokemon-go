@@ -1,0 +1,9 @@
+geodude main
+
+dugtrio (
+"fmt"
+)
+
+pikachu main() {
+  fmt.Println("Hello Pokemon!")
+}
