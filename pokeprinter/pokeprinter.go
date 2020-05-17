@@ -7,9 +7,9 @@
 package pokeprinter
 
 import (
-	token "../poketoken"
-	"fmt"
 	ast "../pokeast"
+	"../poketoken"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -53,7 +53,7 @@ type commentInfo struct {
 type printer struct {
 	// Configuration (does not change after initialization)
 	Config
-	fset *token.FileSet
+	fset *poketoken.FileSet
 
 	// Current state
 	output       []byte       // raw printer result
@@ -62,8 +62,8 @@ type printer struct {
 	mode         pmode        // current printer mode
 	endAlignment bool         // if set, terminate alignment immediately
 	impliedSemi  bool         // if set, a linebreak implies a semicolon
-	lastTok      token.Token  // last token printed (token.ILLEGAL if it's whitespace)
-	prevOpen     token.Token  // previous non-brace "open" token (, [, or token.ILLEGAL
+	lastTok      poketoken.Token  // last token printed (poketoken.ILLEGAL if it's whitespace)
+	prevOpen     poketoken.Token  // previous non-brace "open" token (, [, or poketoken.ILLEGAL
 	wsbuf        []whiteSpace // delayed white space
 
 	// Positions
@@ -72,9 +72,9 @@ type printer struct {
 	// white space). If there's a difference and SourcePos is set in
 	// ConfigMode, //line directives are used in the output to restore
 	// original source positions for a reader.
-	pos     token.Position // current position in AST (source) space
-	out     token.Position // current position in output space
-	last    token.Position // value of pos after calling writeString
+	pos     poketoken.Position // current position in AST (source) space
+	out     poketoken.Position // current position in output space
+	last    poketoken.Position // value of pos after calling writeString
 	linePtr *int           // if set, record out.Line for the next token in *linePtr
 
 	// The list of all source comments, in order of appearance.
@@ -88,15 +88,15 @@ type printer struct {
 	nodeSizes map[ast.Node]int
 
 	// Cache of most recently computed line position.
-	cachedPos  token.Pos
+	cachedPos  poketoken.Pos
 	cachedLine int // line corresponding to cachedPos
 }
 
-func (p *printer) init(cfg *Config, fset *token.FileSet, nodeSizes map[ast.Node]int) {
+func (p *printer) init(cfg *Config, fset *poketoken.FileSet, nodeSizes map[ast.Node]int) {
 	p.Config = *cfg
 	p.fset = fset
-	p.pos = token.Position{Line: 1, Column: 1}
-	p.out = token.Position{Line: 1, Column: 1}
+	p.pos = poketoken.Position{Line: 1, Column: 1}
+	p.out = poketoken.Position{Line: 1, Column: 1}
 	p.wsbuf = make([]whiteSpace, 0, 16) // whitespace sequences are short
 	p.nodeSizes = nodeSizes
 	p.cachedPos = -1
@@ -150,14 +150,14 @@ func (p *printer) nextComment() {
 // before the next position in the source code and printing it does
 // not introduce implicit semicolons.
 //
-func (p *printer) commentBefore(next token.Position) bool {
+func (p *printer) commentBefore(next poketoken.Position) bool {
 	return p.commentOffset < next.Offset && (!p.impliedSemi || !p.commentNewline)
 }
 
 // commentSizeBefore returns the estimated size of the
 // comments on the same line before the next position.
 //
-func (p *printer) commentSizeBefore(next token.Position) int {
+func (p *printer) commentSizeBefore(next poketoken.Position) int {
 	// save/restore current p.commentInfo (p.nextComment() modifies it)
 	defer func(info commentInfo) {
 		p.commentInfo = info
@@ -191,12 +191,12 @@ func (p *printer) linesFrom(line int) int {
 	return p.out.Line - line
 }
 
-func (p *printer) posFor(pos token.Pos) token.Position {
-	// not used frequently enough to cache entire token.Position
+func (p *printer) posFor(pos poketoken.Pos) poketoken.Position {
+	// not used frequently enough to cache entire poketoken.Position
 	return p.fset.PositionFor(pos, false /* absolute position */)
 }
 
-func (p *printer) lineFor(pos token.Pos) int {
+func (p *printer) lineFor(pos poketoken.Pos) int {
 	if pos != p.cachedPos {
 		p.cachedPos = pos
 		p.cachedLine = p.fset.PositionFor(pos, false /* absolute position */).Line
@@ -205,7 +205,7 @@ func (p *printer) lineFor(pos token.Pos) int {
 }
 
 // writeLineDirective writes a //line directive if necessary.
-func (p *printer) writeLineDirective(pos token.Position) {
+func (p *printer) writeLineDirective(pos poketoken.Position) {
 	if pos.IsValid() && (p.out.Line != pos.Line || p.out.Filename != pos.Filename) {
 		p.output = append(p.output, tabwriter.Escape) // protect '\n' in //line from tabwriter interpretation
 		p.output = append(p.output, fmt.Sprintf("//line %s:%d\n", pos.Filename, pos.Line)...)
@@ -281,7 +281,7 @@ func (p *printer) writeByte(ch byte, n int) {
 // avoids processing extra escape characters and reduces run time of the
 // printer benchmark by up to 10%.
 //
-func (p *printer) writeString(pos token.Position, s string, isLit bool) {
+func (p *printer) writeString(pos poketoken.Position, s string, isLit bool) {
 	if p.out.Column == 1 {
 		if p.Config.Mode&SourcePos != 0 {
 			p.writeLineDirective(pos)
@@ -351,7 +351,7 @@ func (p *printer) writeString(pos token.Position, s string, isLit bool) {
 // after all pending comments, prev is the previous comment in
 // a group of comments (or nil), and tok is the next token.
 //
-func (p *printer) writeCommentPrefix(pos, next token.Position, prev *ast.Comment, tok token.Token) {
+func (p *printer) writeCommentPrefix(pos, next poketoken.Position, prev *ast.Comment, tok poketoken.Token) {
 	if len(p.output) == 0 {
 		// the comment is the first item to be printed - don't write any whitespace
 		return
@@ -430,7 +430,7 @@ func (p *printer) writeCommentPrefix(pos, next token.Position, prev *ast.Comment
 				// closing block and stop (this scenario appears with
 				// comments before a case label where the comments
 				// apply to the next case instead of the current one)
-				if tok != token.RBRACE && pos.Column == next.Column {
+				if tok != poketoken.RBRACE && pos.Column == next.Column {
 					continue
 				}
 			case newline, formfeed:
@@ -741,7 +741,7 @@ func (p *printer) containsLinebreak() bool {
 // the comments and whitespace. The intersperseComments result indicates if a
 // newline was written or if a formfeed was dropped from the whitespace buffer.
 //
-func (p *printer) intersperseComments(next token.Position, tok token.Token) (wroteNewline, droppedFF bool) {
+func (p *printer) intersperseComments(next poketoken.Position, tok poketoken.Token) (wroteNewline, droppedFF bool) {
 	var last *ast.Comment
 	for p.commentBefore(next) {
 		for _, c := range p.comment.List {
@@ -766,9 +766,9 @@ func (p *printer) intersperseComments(next token.Position, tok token.Token) (wro
 		needsLinebreak := false
 		if p.mode&noExtraBlank == 0 &&
 			last.Text[1] == '*' && p.lineFor(last.Pos()) == next.Line &&
-			tok != token.COMMA &&
-			(tok != token.RPAREN || p.prevOpen == token.LPAREN) &&
-			(tok != token.RBRACK || p.prevOpen == token.LBRACK) {
+			tok != poketoken.COMMA &&
+			(tok != poketoken.RPAREN || p.prevOpen == poketoken.LPAREN) &&
+			(tok != poketoken.RBRACK || p.prevOpen == poketoken.LBRACK) {
 			if p.containsLinebreak() && p.mode&noExtraLinebreak == 0 && p.level == 0 {
 				needsLinebreak = true
 			} else {
@@ -778,8 +778,8 @@ func (p *printer) intersperseComments(next token.Position, tok token.Token) (wro
 		// Ensure that there is a line break after a //-style comment,
 		// before EOF, and before a closing '}' unless explicitly disabled.
 		if last.Text[1] == '/' ||
-			tok == token.EOF ||
-			tok == token.RBRACE && p.mode&noExtraLinebreak == 0 {
+			tok == poketoken.EOF ||
+			tok == poketoken.RBRACE && p.mode&noExtraLinebreak == 0 {
 			needsLinebreak = true
 		}
 		return p.writeCommentSuffix(needsLinebreak)
@@ -845,19 +845,19 @@ func nlimit(n int) int {
 	return n
 }
 
-func mayCombine(prev token.Token, next byte) (b bool) {
+func mayCombine(prev poketoken.Token, next byte) (b bool) {
 	switch prev {
-	case token.INT:
+	case poketoken.INT:
 		b = next == '.' // 1.
-	case token.ADD:
+	case poketoken.ADD:
 		b = next == '+' // ++
-	case token.SUB:
+	case poketoken.SUB:
 		b = next == '-' // --
-	case token.QUO:
+	case poketoken.QUO:
 		b = next == '*' // /*
-	case token.LSS:
+	case poketoken.LSS:
 		b = next == '-' || next == '<' // <- or <<
-	case token.AND:
+	case poketoken.AND:
 		b = next == '&' || next == '^' // && or &^
 	}
 	return
@@ -883,13 +883,13 @@ func (p *printer) print(args ...interface{}) {
 
 		// record previous opening token, if any
 		switch p.lastTok {
-		case token.ILLEGAL:
+		case poketoken.ILLEGAL:
 			// ignore (white space)
-		case token.LPAREN, token.LBRACK:
+		case poketoken.LPAREN, poketoken.LBRACK:
 			p.prevOpen = p.lastTok
 		default:
 			// other tokens followed any opening token
-			p.prevOpen = token.ILLEGAL
+			p.prevOpen = poketoken.ILLEGAL
 		}
 
 		switch x := arg.(type) {
@@ -922,13 +922,13 @@ func (p *printer) print(args ...interface{}) {
 				// in this case
 				p.impliedSemi = false
 			}
-			p.lastTok = token.ILLEGAL
+			p.lastTok = poketoken.ILLEGAL
 			continue
 
 		case *ast.Ident:
 			data = x.Name
 			impliedSemi = true
-			p.lastTok = token.IDENT
+			p.lastTok = poketoken.IDENT
 
 		case *ast.BasicLit:
 			data = x.Value
@@ -936,13 +936,65 @@ func (p *printer) print(args ...interface{}) {
 			impliedSemi = true
 			p.lastTok = x.Kind
 
-		case token.Token:
-			s := x.String()
+		case poketoken.Token:
+			var s string
+			switch x {
+			case poketoken.RETURN:
+				s = "return"
+			case poketoken.CASE:
+				s = "case"
+			case poketoken.CHAN:
+				s = "chan"
+			case poketoken.CONST:
+				s = "const"
+			case poketoken.CONTINUE:
+				s = "continue"
+			case poketoken.DEFAULT:
+				s = "default"
+			case poketoken.DEFER:
+				s = "defer"
+			case poketoken.ELSE:
+				s = "else"
+			case poketoken.FALLTHROUGH:
+				s = "fallthrough"
+			case poketoken.FOR:
+				s = "for"
+			case poketoken.FUNC:
+				s = "func"
+			case poketoken.GO:
+				s = "go"
+			case poketoken.GOTO:
+				s = "goto"
+			case poketoken.IF:
+				s = "if"
+			case poketoken.IMPORT:
+				s = "import"
+			case poketoken.INTERFACE:
+				s = "interface"
+			case poketoken.MAP:
+				s = "map"
+			case poketoken.PACKAGE:
+				s = "package"
+			case poketoken.RANGE:
+				s = "range"
+			case poketoken.SELECT:
+				s = "select"
+			case poketoken.STRUCT:
+				s = "struct"
+			case poketoken.SWITCH:
+				s = "switch"
+			case poketoken.TYPE:
+				s = "type"
+			case poketoken.VAR:
+				s = "var"
+			default:
+				s = x.String()
+			}
 			if mayCombine(p.lastTok, s[0]) {
 				// the previous and the current token must be
 				// separated by a blank otherwise they combine
 				// into a different incorrect token sequence
-				// (except for token.INT followed by a '.' this
+				// (except for poketoken.INT followed by a '.' this
 				// should never happen because it is taken care
 				// of via binary expression formatting)
 				if len(p.wsbuf) != 0 {
@@ -954,13 +1006,13 @@ func (p *printer) print(args ...interface{}) {
 			data = s
 			// some keywords followed by a newline imply a semicolon
 			switch x {
-			case token.BREAK, token.CONTINUE, token.FALLTHROUGH, token.RETURN,
-				token.INC, token.DEC, token.RPAREN, token.RBRACK, token.RBRACE:
+			case poketoken.BREAK, poketoken.CONTINUE, poketoken.FALLTHROUGH, poketoken.RETURN,
+				poketoken.INC, poketoken.DEC, poketoken.RPAREN, poketoken.RBRACK, poketoken.RBRACE:
 				impliedSemi = true
 			}
 			p.lastTok = x
 
-		case token.Pos:
+		case poketoken.Pos:
 			if x.IsValid() {
 				p.pos = p.posFor(x) // accurate position of next item
 			}
@@ -971,7 +1023,7 @@ func (p *printer) print(args ...interface{}) {
 			data = x
 			isLit = true
 			impliedSemi = true
-			p.lastTok = token.STRING
+			p.lastTok = poketoken.STRING
 
 		default:
 			fmt.Fprintf(os.Stderr, "print: unsupported argument %v (%T)\n", arg, arg)
@@ -1017,7 +1069,7 @@ func (p *printer) print(args ...interface{}) {
 // if a newline was written or if a formfeed was dropped from the whitespace
 // buffer.
 //
-func (p *printer) flush(next token.Position, tok token.Token) (wroteNewline, droppedFF bool) {
+func (p *printer) flush(next poketoken.Position, tok poketoken.Token) (wroteNewline, droppedFF bool) {
 	if p.commentBefore(next) {
 		// if there are comments before the next item, intersperse them
 		wroteNewline, droppedFF = p.intersperseComments(next, tok)
@@ -1287,7 +1339,7 @@ type Config struct {
 }
 
 // fprint implements Fprint and takes a nodesSizes map for setting up the printer state.
-func (cfg *Config) fprint(output io.Writer, fset *token.FileSet, node interface{}, nodeSizes map[ast.Node]int) (err error) {
+func (cfg *Config) fprint(output io.Writer, fset *poketoken.FileSet, node interface{}, nodeSizes map[ast.Node]int) (err error) {
 	// print node
 	var p printer
 	p.init(cfg, fset, nodeSizes)
@@ -1296,7 +1348,7 @@ func (cfg *Config) fprint(output io.Writer, fset *token.FileSet, node interface{
 	}
 	// print outstanding comments
 	p.impliedSemi = false // EOF acts like a newline
-	p.flush(token.Position{Offset: infinity, Line: infinity}, token.EOF)
+	p.flush(poketoken.Position{Offset: infinity, Line: infinity}, poketoken.EOF)
 
 	// redirect output through a trimmer to eliminate trailing whitespace
 	// (Input to a tabwriter must be untrimmed since trailing tabs provide
@@ -1348,7 +1400,7 @@ type CommentedNode struct {
 // The node type must be *ast.File, *CommentedNode, []ast.Decl, []ast.Stmt,
 // or assignment-compatible to ast.Expr, ast.Decl, ast.Spec, or ast.Stmt.
 //
-func (cfg *Config) Fprint(output io.Writer, fset *token.FileSet, node interface{}) error {
+func (cfg *Config) Fprint(output io.Writer, fset *poketoken.FileSet, node interface{}) error {
 	return cfg.fprint(output, fset, node, make(map[ast.Node]int))
 }
 
@@ -1357,6 +1409,6 @@ func (cfg *Config) Fprint(output io.Writer, fset *token.FileSet, node interface{
 // Note that gofmt uses tabs for indentation but spaces for alignment;
 // use format.Node (package go/format) for output that matches gofmt.
 //
-func Fprint(output io.Writer, fset *token.FileSet, node interface{}) error {
+func Fprint(output io.Writer, fset *poketoken.FileSet, node interface{}) error {
 	return (&Config{Tabwidth: 8}).Fprint(output, fset, node)
 }

@@ -25,7 +25,10 @@ func main() {
 			fmt.Printf("parsing failed: %s", err)
 			return
 		}
-		pokeprinter.Fprint(os.Stdout, poketoken.NewFileSet(), exp)
+		err = pokeprinter.Fprint(os.Stdout, poketoken.NewFileSet(), exp)
+		if err != nil {
+			fmt.Printf("output failed: %s", err)
+		}
 		fmt.Printf("\n")
 		}
 }

@@ -10,8 +10,9 @@ package pokeprinter
 
 import (
 	ast "../pokeast"
-	token "../poketoken"
+	"../poketoken"
 	"bytes"
+	"go/token"
 	"math"
 	"strconv"
 	"strings"
@@ -80,7 +81,7 @@ func (p *printer) setComment(g *ast.CommentGroup) {
 		// for some reason there are pending comments; this
 		// should never happen - handle gracefully and flush
 		// all comments up to g, ignore anything after that
-		p.flush(p.posFor(g.List[0].Pos()), token.ILLEGAL)
+		p.flush(p.posFor(g.List[0].Pos()), poketoken.ILLEGAL)
 		p.comments = p.comments[0:1]
 		// in debug mode, report error
 		p.internalError("setComment found pending comments")
@@ -115,7 +116,7 @@ func (p *printer) identList(list []*ast.Ident, indent bool) {
 	if !indent {
 		mode = noIndent
 	}
-	p.exprList(token.NoPos, xlist, 1, mode, token.NoPos, false)
+	p.exprList(poketoken.NoPos, xlist, 1, mode, poketoken.NoPos, false)
 }
 
 const filteredMsg = "contains filtered or unexported fields"
@@ -127,7 +128,7 @@ const filteredMsg = "contains filtered or unexported fields"
 // TODO(gri) Consider rewriting this to be independent of []ast.Expr
 //           so that we can use the algorithm for any kind of list
 //           (e.g., pass list via a channel over which to range).
-func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exprListMode, next0 token.Pos, isIncomplete bool) {
+func (p *printer) exprList(prev0 poketoken.Pos, list []ast.Expr, depth int, mode exprListMode, next0 poketoken.Pos, isIncomplete bool) {
 	if len(list) == 0 {
 		if isIncomplete {
 			prev := p.posFor(prev0)
@@ -153,12 +154,12 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 			if i > 0 {
 				// use position of expression following the comma as
 				// comma position for correct comment placement
-				p.print(x.Pos(), token.COMMA, blank)
+				p.print(x.Pos(), poketoken.COMMA, blank)
 			}
 			p.expr0(x, depth)
 		}
 		if isIncomplete {
-			p.print(token.COMMA, blank, "/* "+filteredMsg+" */")
+			p.print(poketoken.COMMA, blank, "/* "+filteredMsg+" */")
 		}
 		return
 	}
@@ -246,7 +247,7 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 			if !needsLinebreak {
 				p.print(x.Pos())
 			}
-			p.print(token.COMMA)
+			p.print(poketoken.COMMA)
 			needsBlank := true
 			if needsLinebreak {
 				// Lines are broken using newlines so comments remain aligned
@@ -279,7 +280,7 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 			// can align if possible.
 			// (needsLinebreak is set if we started a new line before)
 			p.expr(pair.Key)
-			p.print(pair.Colon, token.COLON, vtab)
+			p.print(pair.Colon, poketoken.COLON, vtab)
 			p.expr(pair.Value)
 		} else {
 			p.expr0(x, depth)
@@ -295,7 +296,7 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 
 	if mode&commaTerm != 0 && next.IsValid() && p.pos.Line < next.Line {
 		// Print a terminating comma if the next token is on a new line.
-		p.print(token.COMMA)
+		p.print(poketoken.COMMA)
 		if isIncomplete {
 			p.print(newline)
 			p.print("// " + filteredMsg)
@@ -309,7 +310,7 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 	}
 
 	if isIncomplete {
-		p.print(token.COMMA, newline)
+		p.print(poketoken.COMMA, newline)
 		p.print("// "+filteredMsg, newline)
 	}
 
@@ -320,7 +321,7 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 }
 
 func (p *printer) parameters(fields *ast.FieldList) {
-	p.print(fields.Opening, token.LPAREN)
+	p.print(fields.Opening, poketoken.LPAREN)
 	if len(fields.List) > 0 {
 		prevLine := p.lineFor(fields.Opening)
 		ws := indent
@@ -344,7 +345,7 @@ func (p *printer) parameters(fields *ast.FieldList) {
 				if !needsLinebreak {
 					p.print(par.Pos())
 				}
-				p.print(token.COMMA)
+				p.print(poketoken.COMMA)
 			}
 			// separator if needed (linebreak or blank)
 			if needsLinebreak && p.linebreak(parLineBeg, 0, ws, true) > 0 {
@@ -371,7 +372,7 @@ func (p *printer) parameters(fields *ast.FieldList) {
 		// if the closing ")" is on a separate line from the last parameter,
 		// print an additional "," and line break
 		if closing := p.lineFor(fields.Closing); 0 < prevLine && prevLine < closing {
-			p.print(token.COMMA)
+			p.print(poketoken.COMMA)
 			p.linebreak(closing, 0, ignore, true)
 		}
 		// unindent if we indented
@@ -379,14 +380,14 @@ func (p *printer) parameters(fields *ast.FieldList) {
 			p.print(unindent)
 		}
 	}
-	p.print(fields.Closing, token.RPAREN)
+	p.print(fields.Closing, poketoken.RPAREN)
 }
 
 func (p *printer) signature(params, result *ast.FieldList) {
 	if params != nil {
 		p.parameters(params)
 	} else {
-		p.print(token.LPAREN, token.RPAREN)
+		p.print(poketoken.LPAREN, poketoken.RPAREN)
 	}
 	n := result.NumFields()
 	if n > 0 {
@@ -433,7 +434,7 @@ func (p *printer) isOneLineFieldList(list []*ast.Field) bool {
 }
 
 func (p *printer) setLineComment(text string) {
-	p.setComment(&ast.CommentGroup{List: []*ast.Comment{{Slash: token.NoPos, Text: text}}})
+	p.setComment(&ast.CommentGroup{List: []*ast.Comment{{Slash: poketoken.NoPos, Text: text}}})
 }
 
 func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) {
@@ -447,18 +448,18 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 		// possibly a one-line struct/interface
 		if len(list) == 0 {
 			// no blank between keyword and {} in this case
-			p.print(lbrace, token.LBRACE, rbrace, token.RBRACE)
+			p.print(lbrace, poketoken.LBRACE, rbrace, poketoken.RBRACE)
 			return
 		} else if p.isOneLineFieldList(list) {
 			// small enough - print on one line
 			// (don't use identList and ignore source line breaks)
-			p.print(lbrace, token.LBRACE, blank)
+			p.print(lbrace, poketoken.LBRACE, blank)
 			f := list[0]
 			if isStruct {
 				for i, x := range f.Names {
 					if i > 0 {
 						// no comments so no need for comma position
-						p.print(token.COMMA, blank)
+						p.print(poketoken.COMMA, blank)
 					}
 					p.expr(x)
 				}
@@ -476,13 +477,13 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 					p.expr(f.Type)
 				}
 			}
-			p.print(blank, rbrace, token.RBRACE)
+			p.print(blank, rbrace, poketoken.RBRACE)
 			return
 		}
 	}
 	// hasComments || !srcIsOneLine
 
-	p.print(blank, lbrace, token.LBRACE, indent)
+	p.print(blank, lbrace, poketoken.LBRACE, indent)
 	if hasComments || len(list) > 0 {
 		p.print(formfeed)
 	}
@@ -531,7 +532,7 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 			if len(list) > 0 {
 				p.print(formfeed)
 			}
-			p.flush(p.posFor(rbrace), token.RBRACE) // make sure we don't lose the last line comment
+			p.flush(p.posFor(rbrace), poketoken.RBRACE) // make sure we don't lose the last line comment
 			p.setLineComment("// " + filteredMsg)
 		}
 
@@ -558,12 +559,12 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 			if len(list) > 0 {
 				p.print(formfeed)
 			}
-			p.flush(p.posFor(rbrace), token.RBRACE) // make sure we don't lose the last line comment
+			p.flush(p.posFor(rbrace), poketoken.RBRACE) // make sure we don't lose the last line comment
 			p.setLineComment("// contains filtered or unexported methods")
 		}
 
 	}
-	p.print(unindent, formfeed, rbrace, token.RBRACE)
+	p.print(unindent, formfeed, rbrace, poketoken.RBRACE)
 }
 
 // ----------------------------------------------------------------------------
@@ -607,7 +608,7 @@ func walkBinary(e *ast.BinaryExpr) (has4, has5 bool, maxProblem int) {
 		}
 
 	case *ast.StarExpr:
-		if e.Op == token.QUO { // `*/`
+		if e.Op == poketoken.QUO { // `*/`
 			maxProblem = 5
 		}
 
@@ -699,9 +700,9 @@ func (p *printer) binaryExpr(x *ast.BinaryExpr, prec1, cutoff, depth int) {
 		// parenthesis needed
 		// Note: The parser inserts an ast.ParenExpr node; thus this case
 		//       can only occur if the AST is created in a different way.
-		p.print(token.LPAREN)
+		p.print(poketoken.LPAREN)
 		p.expr0(x, reduceDepth(depth)) // parentheses undo one level of depth
-		p.print(token.RPAREN)
+		p.print(poketoken.RPAREN)
 		return
 	}
 
@@ -756,34 +757,34 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 
 	case *ast.KeyValueExpr:
 		p.expr(x.Key)
-		p.print(x.Colon, token.COLON, blank)
+		p.print(x.Colon, poketoken.COLON, blank)
 		p.expr(x.Value)
 
 	case *ast.StarExpr:
-		const prec = token.UnaryPrec
+		const prec = poketoken.UnaryPrec
 		if prec < prec1 {
 			// parenthesis needed
-			p.print(token.LPAREN)
-			p.print(token.MUL)
+			p.print(poketoken.LPAREN)
+			p.print(poketoken.MUL)
 			p.expr(x.X)
-			p.print(token.RPAREN)
+			p.print(poketoken.RPAREN)
 		} else {
 			// no parenthesis needed
-			p.print(token.MUL)
+			p.print(poketoken.MUL)
 			p.expr(x.X)
 		}
 
 	case *ast.UnaryExpr:
-		const prec = token.UnaryPrec
+		const prec = poketoken.UnaryPrec
 		if prec < prec1 {
 			// parenthesis needed
-			p.print(token.LPAREN)
+			p.print(poketoken.LPAREN)
 			p.expr(x)
-			p.print(token.RPAREN)
+			p.print(poketoken.RPAREN)
 		} else {
 			// no parenthesis needed
 			p.print(x.Op)
-			if x.Op == token.RANGE {
+			if x.Op == poketoken.RANGE {
 				// TODO(gri) Remove this code if it cannot be reached.
 				p.print(blank)
 			}
@@ -794,7 +795,7 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		p.print(x)
 
 	case *ast.FuncLit:
-		p.print(x.Type.Pos(), token.FUNC)
+		p.print(x.Type.Pos(), poketoken.FUNC)
 		// See the comment in funcDecl about how the header size is computed.
 		startCol := p.out.Column - len("func")
 		p.signature(x.Type.Params, x.Type.Results)
@@ -806,35 +807,35 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 			// TODO(gri) consider making this more general and incorporate precedence levels
 			p.expr0(x.X, depth)
 		} else {
-			p.print(token.LPAREN)
+			p.print(poketoken.LPAREN)
 			p.expr0(x.X, reduceDepth(depth)) // parentheses undo one level of depth
-			p.print(x.Rparen, token.RPAREN)
+			p.print(x.Rparen, poketoken.RPAREN)
 		}
 
 	case *ast.SelectorExpr:
 		p.selectorExpr(x, depth, false)
 
 	case *ast.TypeAssertExpr:
-		p.expr1(x.X, token.HighestPrec, depth)
-		p.print(token.PERIOD, x.Lparen, token.LPAREN)
+		p.expr1(x.X, poketoken.HighestPrec, depth)
+		p.print(poketoken.PERIOD, x.Lparen, poketoken.LPAREN)
 		if x.Type != nil {
 			p.expr(x.Type)
 		} else {
 			p.print(token.TYPE)
 		}
-		p.print(x.Rparen, token.RPAREN)
+		p.print(x.Rparen, poketoken.RPAREN)
 
 	case *ast.IndexExpr:
 		// TODO(gri): should treat[] like parentheses and undo one level of depth
-		p.expr1(x.X, token.HighestPrec, 1)
-		p.print(x.Lbrack, token.LBRACK)
+		p.expr1(x.X, poketoken.HighestPrec, 1)
+		p.print(x.Lbrack, poketoken.LBRACK)
 		p.expr0(x.Index, depth+1)
-		p.print(x.Rbrack, token.RBRACK)
+		p.print(x.Rbrack, poketoken.RBRACK)
 
 	case *ast.SliceExpr:
 		// TODO(gri): should treat[] like parentheses and undo one level of depth
-		p.expr1(x.X, token.HighestPrec, 1)
-		p.print(x.Lbrack, token.LBRACK)
+		p.expr1(x.X, poketoken.HighestPrec, 1)
+		p.print(x.Lbrack, poketoken.LBRACK)
 		indices := []ast.Expr{x.Low, x.High}
 		if x.Max != nil {
 			indices = append(indices, x.Max)
@@ -861,7 +862,7 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 				if indices[i-1] != nil && needsBlanks {
 					p.print(blank)
 				}
-				p.print(token.COLON)
+				p.print(poketoken.COLON)
 				if x != nil && needsBlanks {
 					p.print(blank)
 				}
@@ -870,7 +871,7 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 				p.expr0(x, depth+1)
 			}
 		}
-		p.print(x.Rbrack, token.RBRACK)
+		p.print(x.Rbrack, poketoken.RBRACK)
 
 	case *ast.CallExpr:
 		if len(x.Args) > 1 {
@@ -879,23 +880,23 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		var wasIndented bool
 		if _, ok := x.Fun.(*ast.FuncType); ok {
 			// conversions to literal function types require parentheses around the type
-			p.print(token.LPAREN)
-			wasIndented = p.possibleSelectorExpr(x.Fun, token.HighestPrec, depth)
-			p.print(token.RPAREN)
+			p.print(poketoken.LPAREN)
+			wasIndented = p.possibleSelectorExpr(x.Fun, poketoken.HighestPrec, depth)
+			p.print(poketoken.RPAREN)
 		} else {
-			wasIndented = p.possibleSelectorExpr(x.Fun, token.HighestPrec, depth)
+			wasIndented = p.possibleSelectorExpr(x.Fun, poketoken.HighestPrec, depth)
 		}
-		p.print(x.Lparen, token.LPAREN)
+		p.print(x.Lparen, poketoken.LPAREN)
 		if x.Ellipsis.IsValid() {
 			p.exprList(x.Lparen, x.Args, depth, 0, x.Ellipsis, false)
-			p.print(x.Ellipsis, token.ELLIPSIS)
+			p.print(x.Ellipsis, poketoken.ELLIPSIS)
 			if x.Rparen.IsValid() && p.lineFor(x.Ellipsis) < p.lineFor(x.Rparen) {
-				p.print(token.COMMA, formfeed)
+				p.print(poketoken.COMMA, formfeed)
 			}
 		} else {
 			p.exprList(x.Lparen, x.Args, depth, commaTerm, x.Rparen, false)
 		}
-		p.print(x.Rparen, token.RPAREN)
+		p.print(x.Rparen, poketoken.RPAREN)
 		if wasIndented {
 			p.print(unindent)
 		}
@@ -903,10 +904,10 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 	case *ast.CompositeLit:
 		// composite literal elements that are composite literals themselves may have the type omitted
 		if x.Type != nil {
-			p.expr1(x.Type, token.HighestPrec, depth)
+			p.expr1(x.Type, poketoken.HighestPrec, depth)
 		}
 		p.level++
-		p.print(x.Lbrace, token.LBRACE)
+		p.print(x.Lbrace, poketoken.LBRACE)
 		p.exprList(x.Lbrace, x.Elts, 1, commaTerm, x.Rbrace, x.Incomplete)
 		// do not insert extra line break following a /*-style comment
 		// before the closing '}' as it might break the code if there
@@ -919,7 +920,7 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		}
 		// need the initial indent to print lone comments with
 		// the proper level of indentation
-		p.print(indent, unindent, mode, x.Rbrace, token.RBRACE, mode)
+		p.print(indent, unindent, mode, x.Rbrace, poketoken.RBRACE, mode)
 		p.level--
 
 	case *ast.Ellipsis:
@@ -937,31 +938,31 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		p.expr(x.Elt)
 
 	case *ast.StructType:
-		p.print(token.STRUCT)
+		p.print(poketoken.STRUCT)
 		p.fieldList(x.Fields, true, x.Incomplete)
 
 	case *ast.FuncType:
-		p.print(token.FUNC)
+		p.print(poketoken.FUNC)
 		p.signature(x.Params, x.Results)
 
 	case *ast.InterfaceType:
-		p.print(token.INTERFACE)
+		p.print(poketoken.INTERFACE)
 		p.fieldList(x.Methods, false, x.Incomplete)
 
 	case *ast.MapType:
-		p.print(token.MAP, token.LBRACK)
+		p.print(poketoken.MAP, poketoken.LBRACK)
 		p.expr(x.Key)
-		p.print(token.RBRACK)
+		p.print(poketoken.RBRACK)
 		p.expr(x.Value)
 
 	case *ast.ChanType:
 		switch x.Dir {
 		case ast.SEND | ast.RECV:
-			p.print(token.CHAN)
+			p.print(poketoken.CHAN)
 		case ast.RECV:
-			p.print(token.ARROW, token.CHAN) // x.Arrow and x.Pos() are the same
+			p.print(poketoken.ARROW, poketoken.CHAN) // x.Arrow and x.Pos() are the same
 		case ast.SEND:
-			p.print(token.CHAN, x.Arrow, token.ARROW)
+			p.print(poketoken.CHAN, x.Arrow, poketoken.ARROW)
 		}
 		p.print(blank)
 		p.expr(x.Value)
@@ -982,8 +983,8 @@ func (p *printer) possibleSelectorExpr(expr ast.Expr, prec1, depth int) bool {
 // selectorExpr handles an *ast.SelectorExpr node and reports whether x spans
 // multiple lines.
 func (p *printer) selectorExpr(x *ast.SelectorExpr, depth int, isMethod bool) bool {
-	p.expr1(x.X, token.HighestPrec, depth)
-	p.print(token.PERIOD)
+	p.expr1(x.X, poketoken.HighestPrec, depth)
+	p.print(poketoken.PERIOD)
 	if line := p.lineFor(x.Sel.Pos()); p.pos.IsValid() && p.pos.Line < line {
 		p.print(indent, newline, x.Sel.Pos(), x.Sel)
 		if !isMethod {
@@ -996,12 +997,12 @@ func (p *printer) selectorExpr(x *ast.SelectorExpr, depth int, isMethod bool) bo
 }
 
 func (p *printer) expr0(x ast.Expr, depth int) {
-	p.expr1(x, token.LowestPrec, depth)
+	p.expr1(x, poketoken.LowestPrec, depth)
 }
 
 func (p *printer) expr(x ast.Expr) {
 	const depth = 1
-	p.expr1(x, token.LowestPrec, depth)
+	p.expr1(x, poketoken.LowestPrec, depth)
 }
 
 // ----------------------------------------------------------------------------
@@ -1049,10 +1050,10 @@ func (p *printer) stmtList(list []ast.Stmt, nindent int, nextIsRBrace bool) {
 
 // block prints an *ast.BlockStmt; it always spans at least two lines.
 func (p *printer) block(b *ast.BlockStmt, nindent int) {
-	p.print(b.Lbrace, token.LBRACE)
+	p.print(b.Lbrace, poketoken.LBRACE)
 	p.stmtList(b.List, nindent, true)
 	p.linebreak(p.lineFor(b.Rbrace), 1, ignore, true)
-	p.print(b.Rbrace, token.RBRACE)
+	p.print(b.Rbrace, poketoken.RBRACE)
 }
 
 func isTypeName(x ast.Expr) bool {
@@ -1113,13 +1114,13 @@ func (p *printer) controlClause(isForStmt bool, init ast.Stmt, expr ast.Expr, po
 		if init != nil {
 			p.stmt(init, false)
 		}
-		p.print(token.SEMICOLON, blank)
+		p.print(poketoken.SEMICOLON, blank)
 		if expr != nil {
 			p.expr(stripParens(expr))
 			needsBlank = true
 		}
 		if isForStmt {
-			p.print(token.SEMICOLON, blank)
+			p.print(poketoken.SEMICOLON, blank)
 			needsBlank = false
 			if post != nil {
 				p.stmt(post, false)
@@ -1186,10 +1187,10 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		// between (see writeWhitespace)
 		p.print(unindent)
 		p.expr(s.Label)
-		p.print(s.Colon, token.COLON, indent)
+		p.print(s.Colon, poketoken.COLON, indent)
 		if e, isEmpty := s.Stmt.(*ast.EmptyStmt); isEmpty {
 			if !nextIsRBrace {
-				p.print(newline, e.Pos(), token.SEMICOLON)
+				p.print(newline, e.Pos(), poketoken.SEMICOLON)
 				break
 			}
 		} else {
@@ -1204,7 +1205,7 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 	case *ast.SendStmt:
 		const depth = 1
 		p.expr0(s.Chan, depth)
-		p.print(blank, s.Arrow, token.ARROW, blank)
+		p.print(blank, s.Arrow, poketoken.ARROW, blank)
 		p.expr0(s.Value, depth)
 
 	case *ast.IncDecStmt:
@@ -1219,18 +1220,18 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		}
 		p.exprList(s.Pos(), s.Lhs, depth, 0, s.TokPos, false)
 		p.print(blank, s.TokPos, s.Tok, blank)
-		p.exprList(s.TokPos, s.Rhs, depth, 0, token.NoPos, false)
+		p.exprList(s.TokPos, s.Rhs, depth, 0, poketoken.NoPos, false)
 
 	case *ast.GoStmt:
-		p.print(token.GO, blank)
+		p.print(poketoken.GO, blank)
 		p.expr(s.Call)
 
 	case *ast.DeferStmt:
-		p.print(token.DEFER, blank)
+		p.print(poketoken.DEFER, blank)
 		p.expr(s.Call)
 
 	case *ast.ReturnStmt:
-		p.print(token.RETURN)
+		p.print(poketoken.RETURN)
 		if s.Results != nil {
 			p.print(blank)
 			// Use indentList heuristic to make corner cases look
@@ -1242,10 +1243,10 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 				p.print(indent)
 				// Use NoPos so that a newline never goes before
 				// the results (see issue #32854).
-				p.exprList(token.NoPos, s.Results, 1, noIndent, token.NoPos, false)
+				p.exprList(poketoken.NoPos, s.Results, 1, noIndent, poketoken.NoPos, false)
 				p.print(unindent)
 			} else {
-				p.exprList(token.NoPos, s.Results, 1, 0, token.NoPos, false)
+				p.exprList(poketoken.NoPos, s.Results, 1, 0, poketoken.NoPos, false)
 			}
 		}
 
@@ -1260,11 +1261,11 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		p.block(s, 1)
 
 	case *ast.IfStmt:
-		p.print(token.IF)
+		p.print(poketoken.IF)
 		p.controlClause(false, s.Init, s.Cond, nil)
 		p.block(s.Body, 1)
 		if s.Else != nil {
-			p.print(blank, token.ELSE, blank)
+			p.print(blank, poketoken.ELSE, blank)
 			switch s.Else.(type) {
 			case *ast.BlockStmt, *ast.IfStmt:
 				p.stmt(s.Else, nextIsRBrace)
@@ -1272,33 +1273,33 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 				// This can only happen with an incorrectly
 				// constructed AST. Permit it but print so
 				// that it can be parsed without errors.
-				p.print(token.LBRACE, indent, formfeed)
+				p.print(poketoken.LBRACE, indent, formfeed)
 				p.stmt(s.Else, true)
-				p.print(unindent, formfeed, token.RBRACE)
+				p.print(unindent, formfeed, poketoken.RBRACE)
 			}
 		}
 
 	case *ast.CaseClause:
 		if s.List != nil {
-			p.print(token.CASE, blank)
+			p.print(poketoken.CASE, blank)
 			p.exprList(s.Pos(), s.List, 1, 0, s.Colon, false)
 		} else {
-			p.print(token.DEFAULT)
+			p.print(poketoken.DEFAULT)
 		}
-		p.print(s.Colon, token.COLON)
+		p.print(s.Colon, poketoken.COLON)
 		p.stmtList(s.Body, 1, nextIsRBrace)
 
 	case *ast.SwitchStmt:
-		p.print(token.SWITCH)
+		p.print(poketoken.SWITCH)
 		p.controlClause(false, s.Init, s.Tag, nil)
 		p.block(s.Body, 0)
 
 	case *ast.TypeSwitchStmt:
-		p.print(token.SWITCH)
+		p.print(poketoken.SWITCH)
 		if s.Init != nil {
 			p.print(blank)
 			p.stmt(s.Init, false)
-			p.print(token.SEMICOLON)
+			p.print(poketoken.SEMICOLON)
 		}
 		p.print(blank)
 		p.stmt(s.Assign, false)
@@ -1307,42 +1308,42 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 
 	case *ast.CommClause:
 		if s.Comm != nil {
-			p.print(token.CASE, blank)
+			p.print(poketoken.CASE, blank)
 			p.stmt(s.Comm, false)
 		} else {
-			p.print(token.DEFAULT)
+			p.print(poketoken.DEFAULT)
 		}
-		p.print(s.Colon, token.COLON)
+		p.print(s.Colon, poketoken.COLON)
 		p.stmtList(s.Body, 1, nextIsRBrace)
 
 	case *ast.SelectStmt:
-		p.print(token.SELECT, blank)
+		p.print(poketoken.SELECT, blank)
 		body := s.Body
 		if len(body.List) == 0 && !p.commentBefore(p.posFor(body.Rbrace)) {
 			// print empty select statement w/o comments on one line
-			p.print(body.Lbrace, token.LBRACE, body.Rbrace, token.RBRACE)
+			p.print(body.Lbrace, poketoken.LBRACE, body.Rbrace, poketoken.RBRACE)
 		} else {
 			p.block(body, 0)
 		}
 
 	case *ast.ForStmt:
-		p.print(token.FOR)
+		p.print(poketoken.FOR)
 		p.controlClause(true, s.Init, s.Cond, s.Post)
 		p.block(s.Body, 1)
 
 	case *ast.RangeStmt:
-		p.print(token.FOR, blank)
+		p.print(poketoken.FOR, blank)
 		if s.Key != nil {
 			p.expr(s.Key)
 			if s.Value != nil {
 				// use position of value following the comma as
 				// comma position for correct comment placement
-				p.print(s.Value.Pos(), token.COMMA, blank)
+				p.print(s.Value.Pos(), poketoken.COMMA, blank)
 				p.expr(s.Value)
 			}
 			p.print(blank, s.TokPos, s.Tok, blank)
 		}
-		p.print(token.RANGE, blank)
+		p.print(poketoken.RANGE, blank)
 		p.expr(stripParens(s.X))
 		p.print(blank)
 		p.block(s.Body, 1)
@@ -1432,8 +1433,8 @@ func (p *printer) valueSpec(s *ast.ValueSpec, keepType bool) {
 		p.expr(s.Type)
 	}
 	if s.Values != nil {
-		p.print(vtab, token.ASSIGN, blank)
-		p.exprList(token.NoPos, s.Values, 1, 0, token.NoPos, false)
+		p.print(vtab, poketoken.ASSIGN, blank)
+		p.exprList(poketoken.NoPos, s.Values, 1, 0, poketoken.NoPos, false)
 		extraTabs--
 	}
 	if s.Comment != nil {
@@ -1453,7 +1454,7 @@ func sanitizeImportPath(lit *ast.BasicLit) *ast.BasicLit {
 	// all cases since it's not too hard and not speed-critical.
 
 	// if we don't have a proper string, be conservative and return whatever we have
-	if lit.Kind != token.STRING {
+	if lit.Kind != poketoken.STRING {
 		return lit
 	}
 	s, err := strconv.Unquote(lit.Value)
@@ -1484,7 +1485,7 @@ func sanitizeImportPath(lit *ast.BasicLit) *ast.BasicLit {
 	if s == lit.Value {
 		return lit // nothing wrong with lit
 	}
-	return &ast.BasicLit{ValuePos: lit.ValuePos, Kind: token.STRING, Value: s}
+	return &ast.BasicLit{ValuePos: lit.ValuePos, Kind: poketoken.STRING, Value: s}
 }
 
 // The parameter n is the number of specs in the group. If doIndent is set,
@@ -1514,8 +1515,8 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 			p.expr(s.Type)
 		}
 		if s.Values != nil {
-			p.print(blank, token.ASSIGN, blank)
-			p.exprList(token.NoPos, s.Values, 1, 0, token.NoPos, false)
+			p.print(blank, poketoken.ASSIGN, blank)
+			p.exprList(poketoken.NoPos, s.Values, 1, 0, poketoken.NoPos, false)
 		}
 		p.setComment(s.Comment)
 
@@ -1528,7 +1529,7 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 			p.print(vtab)
 		}
 		if s.Assign.IsValid() {
-			p.print(token.ASSIGN, blank)
+			p.print(poketoken.ASSIGN, blank)
 		}
 		p.expr(s.Type)
 		p.setComment(s.Comment)
@@ -1544,10 +1545,10 @@ func (p *printer) genDecl(d *ast.GenDecl) {
 
 	if d.Lparen.IsValid() || len(d.Specs) > 1 {
 		// group of parenthesized declarations
-		p.print(d.Lparen, token.LPAREN)
+		p.print(d.Lparen, poketoken.LPAREN)
 		if n := len(d.Specs); n > 0 {
 			p.print(indent, formfeed)
-			if n > 1 && (d.Tok == token.CONST || d.Tok == token.VAR) {
+			if n > 1 && (d.Tok == poketoken.CONST || d.Tok == poketoken.VAR) {
 				// two or more grouped const/var declarations:
 				// determine if the type column must be kept
 				keepType := keepTypeColumn(d.Specs)
@@ -1571,7 +1572,7 @@ func (p *printer) genDecl(d *ast.GenDecl) {
 			}
 			p.print(unindent, formfeed)
 		}
-		p.print(d.Rparen, token.RPAREN)
+		p.print(d.Rparen, poketoken.RPAREN)
 
 	} else if len(d.Specs) > 0 {
 		// single declaration
@@ -1671,18 +1672,18 @@ func (p *printer) funcBody(headerSize int, sep whiteSpace, b *ast.BlockStmt) {
 
 	const maxSize = 100
 	if headerSize+p.bodySize(b, maxSize) <= maxSize {
-		p.print(sep, b.Lbrace, token.LBRACE)
+		p.print(sep, b.Lbrace, poketoken.LBRACE)
 		if len(b.List) > 0 {
 			p.print(blank)
 			for i, s := range b.List {
 				if i > 0 {
-					p.print(token.SEMICOLON, blank)
+					p.print(poketoken.SEMICOLON, blank)
 				}
 				p.stmt(s, i == len(b.List)-1)
 			}
 			p.print(blank)
 		}
-		p.print(noExtraLinebreak, b.Rbrace, token.RBRACE, noExtraLinebreak)
+		p.print(noExtraLinebreak, b.Rbrace, poketoken.RBRACE, noExtraLinebreak)
 		return
 	}
 
@@ -1695,7 +1696,7 @@ func (p *printer) funcBody(headerSize int, sep whiteSpace, b *ast.BlockStmt) {
 // distanceFrom returns the column difference between p.out (the current output
 // position) and startOutCol. If the start position is on a different line from
 // the current position (or either is unknown), the result is infinity.
-func (p *printer) distanceFrom(startPos token.Pos, startOutCol int) int {
+func (p *printer) distanceFrom(startPos poketoken.Pos, startOutCol int) int {
 	if startPos.IsValid() && p.pos.IsValid() && p.posFor(startPos).Line == p.pos.Line {
 		return p.out.Column - startOutCol
 	}
@@ -1704,7 +1705,7 @@ func (p *printer) distanceFrom(startPos token.Pos, startOutCol int) int {
 
 func (p *printer) funcDecl(d *ast.FuncDecl) {
 	p.setComment(d.Doc)
-	p.print(d.Pos(), token.FUNC, blank)
+	p.print(d.Pos(), poketoken.FUNC, blank)
 	// We have to save startCol only after emitting FUNC; otherwise it can be on a
 	// different line (all whitespace preceding the FUNC is emitted only when the
 	// FUNC is emitted).
@@ -1734,19 +1735,19 @@ func (p *printer) decl(decl ast.Decl) {
 // ----------------------------------------------------------------------------
 // Files
 
-func declToken(decl ast.Decl) (tok token.Token) {
-	tok = token.ILLEGAL
+func declToken(decl ast.Decl) (tok poketoken.Token) {
+	tok = poketoken.ILLEGAL
 	switch d := decl.(type) {
 	case *ast.GenDecl:
 		tok = d.Tok
 	case *ast.FuncDecl:
-		tok = token.FUNC
+		tok = poketoken.FUNC
 	}
 	return
 }
 
 func (p *printer) declList(list []ast.Decl) {
-	tok := token.ILLEGAL
+	tok := poketoken.ILLEGAL
 	for _, d := range list {
 		prev := tok
 		tok = declToken(d)
@@ -1766,7 +1767,7 @@ func (p *printer) declList(list []ast.Decl) {
 			}
 			// start a new section if the next declaration is a function
 			// that spans multiple lines (see also issue #19544)
-			p.linebreak(p.lineFor(d.Pos()), min, ignore, tok == token.FUNC && p.numLines(d) > 1)
+			p.linebreak(p.lineFor(d.Pos()), min, ignore, tok == poketoken.FUNC && p.numLines(d) > 1)
 		}
 		p.decl(d)
 	}
@@ -1774,7 +1775,7 @@ func (p *printer) declList(list []ast.Decl) {
 
 func (p *printer) file(src *ast.File) {
 	p.setComment(src.Doc)
-	p.print(src.Pos(), token.PACKAGE, blank)
+	p.print(src.Pos(), poketoken.PACKAGE, blank)
 	p.expr(src.Name)
 	p.declList(src.Decls)
 	p.print(newline)
