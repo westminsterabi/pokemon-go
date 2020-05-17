@@ -1,5 +1,7 @@
 geodude main
 
-pikachu myFun(name string) string {
-  dewgong name
+dugtrio "fmt"
+
+pikachu main() {
+  fmt.Printf("Hello world")
 }
