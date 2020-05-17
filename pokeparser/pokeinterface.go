@@ -7,10 +7,10 @@
 package pokeparser
 
 import (
+	ast "../pokeast"
 	token "../poketoken"
 	"bytes"
 	"errors"
-	ast "../pokeast"
 	"io"
 	"io/ioutil"
 	"os"

@@ -1,1 +1,5 @@
-pikachu(name string) string { dewgong name }
+geodude main
+
+pikachu myFun(name string) string {
+  dewgong name
+}
