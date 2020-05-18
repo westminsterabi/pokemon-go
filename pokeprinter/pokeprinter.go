@@ -1,3 +1,4 @@
+// Forked from original Go source code, with some bastard mods
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
@@ -935,7 +936,8 @@ func (p *printer) print(args ...interface{}) {
 			isLit = true
 			impliedSemi = true
 			p.lastTok = x.Kind
-
+		
+		// print back valid go 
 		case poketoken.Token:
 			var s string
 			switch x {
